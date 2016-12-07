@@ -126,8 +126,13 @@ get_last_update () {
 function get_price {
   while true ; do 
     while true ; do
-       price=`curl -s https://www.cryptonator.com/api/full/steem-usd 2>/dev/null | grep price | perl -lane 's/.*?(?:price).:.(\d+\.\d{3}).*/$1/; print;'`
-       [ $? -eq 0 ] && break
+       price_json=`curl -s https://www.cryptonator.com/api/full/steem-usd 2>/dev/null | grep price`
+       #echo "price_json is: ${price_json}"
+       # Yes, I'm gonna call perl from bash. Deal with it.
+       # Removes dependency on bc and doesn't require prinf which caused an error in bash strict mode in some cases.
+       price=`echo ${price_json} | DED_PEC=${deduct_percentage} perl -lane 's/.*?(?:price).:.(\d+\.\d{3}).*/$1/; $_ -= $_*$ENV{DED_PEC}/100; print;'`
+       ret=$?
+       [ "$ret" -eq 0 ] && break
        sleep 1m
     done
     #price source and way to calculate will probably need to be changed in the future
@@ -136,9 +141,7 @@ function get_price {
     fi
     sleep 1m
   done
-  #reduction of percentage from feed
-  price=`echo "scale=3; ${price}-${price}*${deduct_percentage}/100" | bc`
-  echo "0${price}"
+  echo "${price}"
 }
 
 init_price="`get_wallet_price`"
