@@ -1,4 +1,14 @@
 #!/bin/bash
+# Enable error checking (snippet=basherror!)
+set -o pipefail  # trace ERR through pipes
+set -o errtrace  # trace ERR through 'time command' and other functions
+set -o nounset   # set -u : exit the script if you try to use an uninitialised variable
+set -o errexit   # set -e : exit the script if any statement returns a non-true return value
+error() {
+  echo "Error on or near line ${1}: ${2:- }; exiting with status ${3:-1}"
+  exit "${3:-1}"
+}
+trap 'error ${LINENO}' ERR
 
 # Price feed logic according to Dan:
 # Apr 27th
@@ -70,14 +80,18 @@ vote () {
     relock
 }
 
+deduct_percentage=0
+vote="no"
+max_delay_minutes=60
 while [ $# -gt 0 ]; do
     case "$1" in
 	-w|--witness) account="$2";   shift; ;;
+	-x|--max-delay-minutes)  max_delay_minutes="$2"; shift; ;;
 	-m|--min)     min_bound="$2"; shift; ;;
 	-M|--max)     max_bound="$2"; shift; ;;
 	-r|--rpc-url) wallet="$2";    shift; ;;
-	-d|--deduct-percentage  deduct_percentage="${2//[^0-9]/}";   shift; ;;
-	-v|--vote)    vote=yes;       ;;
+	-d|--deduct-percentage)  deduct_percentage="${2//[^0-9]/}";   shift; ;;
+	-v|--vote)    vote="yes";       ;;
 	*)	      usage;	      ;;
     esac
     shift
@@ -112,14 +126,10 @@ get_last_update () {
 function get_price {
   while true ; do 
     while true ; do
-       price_fetch=`curl -s https://www.cryptonator.com/api/full/steem-usd 2>/dev/null`
+       price=`curl -s https://www.cryptonator.com/api/full/steem-usd 2>/dev/null | grep price | perl -lane 's/.*?(?:price).:.(\d+\.\d{3}).*/$1/; print;'`
        [ $? -eq 0 ] && break
        sleep 1m
     done
-    price="$(printf "%0.3f" "$(echo $price_fetch \
-				 | tr , "\n" \
-				 | grep '"price"' \
-				 | cut -d\" -f 4)" )"
     #price source and way to calculate will probably need to be changed in the future
     if [[ "$price" = *[[:digit:]]* ]] ; then
       break
@@ -160,9 +170,10 @@ while true ; do
      echo "manual intervention (percent) $init_price $price, exiting"
      exit 1
   fi 
-  #check if to send update (once an hour maximum, 3% change minimum, 1/48 hours minimum)
-  if [ "$price_permillage" -gt 30 -a "$update_diff" -gt 3600 \
-	-o "$update_diff" -gt 172600 ] ; then
+  #check if to send update (once per max_delay_minutes maximum, 0.1% change minimum, 1/24 hours minimum)
+  max_delay_seconds=$(( ${max_delay_minutes} * 60 ))
+  if [ "$price_permillage" -gt 1 -a "$update_diff" -gt ${max_delay_seconds} \
+	-o "$update_diff" -gt 86400 ] ; then
     init_price="$price"
     last_feed="$now"
     unlock
@@ -172,7 +183,7 @@ while true ; do
     relock
   fi
   echo "${price_permillage}/10% | price: $price | time since last post: $update_diff"
-  wait="$(($RANDOM % 60))"
+  wait="$(($RANDOM % ${max_delay_minutes}))"
   echo -n "Waiting until "
   date --date=@"$(( $wait * 60 + $(date +%s) ))"
   sleep "${wait}m"
