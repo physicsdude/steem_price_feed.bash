@@ -5,7 +5,7 @@ set -o errtrace  # trace ERR through 'time command' and other functions
 set -o nounset   # set -u : exit the script if you try to use an uninitialised variable
 set -o errexit   # set -e : exit the script if any statement returns a non-true return value
 error() {
-  echo "Error on or near line ${1}: ${2:- }; exiting with status ${3:-1}"
+  echo "Error on or near line ${1}: ${2:-}; exiting with status ${3:-1}"
   exit "${3:-1}"
 }
 trap 'error ${LINENO}' ERR
@@ -133,6 +133,7 @@ function get_price {
        price=`echo ${price_json} | DED_PEC=${deduct_percentage} perl -lane 's/.*?(?:price).:.(\d+\.\d{3}).*/$1/; $_ -= $_*$ENV{DED_PEC}/100; print;'`
        ret=$?
        [ "$ret" -eq 0 ] && break
+       (>&2 echo "Price feed fail. API returned: (${price_json:-})")
        sleep 1m
     done
     #price source and way to calculate will probably need to be changed in the future
@@ -141,7 +142,7 @@ function get_price {
     fi
     sleep 1m
   done
-  echo "${price}"
+  echo "${price:-}"
 }
 
 init_price="`get_wallet_price`"
