@@ -4,6 +4,7 @@ set -o pipefail  # trace ERR through pipes
 set -o errtrace  # trace ERR through 'time command' and other functions
 set -o nounset   # set -u : exit the script if you try to use an uninitialised variable
 set -o errexit   # set -e : exit the script if any statement returns a non-true return value
+# Comment out set -o verbose and set -o xtrace if you want to see less verbose output.
 set -o verbose   # show commands as they are executed
 set -o xtrace    # expand variables
 error() {
@@ -11,6 +12,9 @@ error() {
   exit "${3:-1}"
 }
 trap 'error ${LINENO}' ERR
+
+# You should create a config file in the place shown below with PRICE_MAXTIME, PRICE_WITNESS, and PRICE_EMAIL
+source $HOME/.steem_price_feed_bash/.config
 
 # Price feed logic according to Dan:
 # Apr 27th
@@ -94,9 +98,11 @@ vote () {
     relock
 }
 
+max_delay_minutes=${PRICE_MAXTIME}
+account=${PRICE_WITNESS}
+
 deduct_percentage=0
 vote="no"
-max_delay_minutes=60
 while [ $# -gt 0 ]; do
     case "$1" in
 	-w|--witness) account="$2";   shift; ;;
