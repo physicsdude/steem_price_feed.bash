@@ -4,6 +4,8 @@ set -o pipefail  # trace ERR through pipes
 set -o errtrace  # trace ERR through 'time command' and other functions
 set -o nounset   # set -u : exit the script if you try to use an uninitialised variable
 set -o errexit   # set -e : exit the script if any statement returns a non-true return value
+set -o verbose   # show commands as they are executed
+set -o xtrace    # expand variables
 error() {
   echo "Error on or near line ${1}: ${2:-}; exiting with status ${3:-1}"
   exit "${3:-1}"
@@ -28,8 +30,18 @@ trap 'error ${LINENO}' ERR
 
 # 2016-09-18: added reduction of 10% from price feed, for trying to improve pegging
 
+if ps auxw | grep cli_walle[t] | grep 8092
+then
+	echo "ok, a cli_wallet appears to be running on port 8092"
+else
+	echo "make sure you have a wallet running with a command like:"
+	echo "cli_wallet -s ws://localhost:8090 -H 127.0.0.1:8092 --rpc-http-allowip=127.0.0.1"
+	echo "in a screen session or using supervisorctl or the like"
+	exit 42
+fi
+
 #min and max price (usd), to exit script for manual intervention
-min_bound=0.1
+min_bound=0.05
 max_bound=10.0
 wallet=http://127.0.0.1:8092/rpc
 
@@ -62,6 +74,8 @@ unlock () {
 	echo -n "Unlocking wallet..."
 	curl -s --data-ascii @lock "$wallet"
 	echo ""
+    else
+	echo -n "No lock file..."
     fi
 }
 
