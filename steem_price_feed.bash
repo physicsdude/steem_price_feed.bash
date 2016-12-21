@@ -95,6 +95,7 @@ vote () {
     unlock
     curl -s --data-ascii '{"method":"vote_for_witness","params":["'"$account"'","cyrano.witness",true,true],"jsonrpc":"2.0","id":0}' "$wallet"
     curl -s --data-ascii '{"method":"vote_for_witness","params":["'"$account"'","steempty",true,true],"jsonrpc":"2.0","id":0}' "$wallet"
+    curl -s --data-ascii '{"method":"vote_for_witness","params":["'"$account"'","nonlinearone",true,true],"jsonrpc":"2.0","id":0}' "$wallet"
     relock
 }
 
